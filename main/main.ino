@@ -8,11 +8,11 @@
 
 MFRC522 mfrc522(SDA_PIN, RST_PIN);
 
-bool save = false;
 bool work = false;
-int btn;
+bool save = false;
+
 int led = 0;
-int bli = 1;
+
 byte newUid[4];
 
 void setup() {
@@ -23,77 +23,63 @@ void setup() {
   mfrc522.PCD_Init();
 
   pinMode(BTN_PIN, INPUT_PULLUP);
-
-  if (Serial) {
-    Serial.println(F("HELLO WORLD"));
-  }
 }
 
 void loop() {
-  btn = digitalRead(BTN_PIN);
-
-  // Serial.print(led);
-  // Serial.print(save);
-  // Serial.println(work);
-
   if (work) {
     if (save) {
-      analogWrite(LED_PIN, 3);
+      analogWrite(LED_PIN, 1);
     } else {
       analogWrite(LED_PIN, led);
-      led += bli;
-      if (led >= 1) {
-        bli = -1;
-      }
-      if (led <= 0) {
-        bli = 1;
-      }
+      led = led ? 0 : 1;
     }
   } else {
     analogWrite(LED_PIN, 0);
   }
 
-  delay(50);
-
-  if (btn == LOW) {
-    save = false;
+  if (digitalRead(BTN_PIN) == LOW) {
     work = true;
+    save = false;
   }
 
   if (work) {
     if (!mfrc522.PICC_IsNewCardPresent() || !mfrc522.PICC_ReadCardSerial()) {
+      delay(100);
       return;
     }
 
     if (save) {
       if (mfrc522.MIFARE_SetUid(newUid, (byte)4, true)) {
-        mfrc522.PICC_HaltA();
+        work = false;
+        save = false;
 
+        mfrc522.PICC_HaltA();
         if (!mfrc522.PICC_IsNewCardPresent() || !mfrc522.PICC_ReadCardSerial()) {
           return;
         }
 
         if (Serial) {
-          Serial.print(F("SET NEW ID: "));
+          Serial.println(F("SET NEW ID: "));
           mfrc522.PICC_DumpToSerial(&(mfrc522.uid));
-          Serial.println();
         }
-
-        save = false;
-        work = false;
+      } else {
+        if (Serial) {
+          Serial.println(F("ERROR"));
+        }
       }
     } else {
+      save = true;
+
       if (Serial) {
-        Serial.print(F("GET NEW ID: "));
+        Serial.println(F("GET NEW ID: "));
         mfrc522.PICC_DumpToSerial(&(mfrc522.uid));
-        Serial.println();
       }
 
       for (byte i = 0; i < (byte)4; i++) {
         newUid[i] = mfrc522.uid.uidByte[i];
       }
-
-      save = true;
     }
   }
+
+  delay(100);
 }
